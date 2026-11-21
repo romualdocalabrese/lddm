@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Laboratorio Matematica & Musica — Compositore di Battute</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --border: #cbd5e1;
+      --text: #0f172a;
+      --muted: #475569;
+      --primary: #1d4ed8;
+      --ok-bg: #dcfce7;
+      --ok-tx: #166534;
+      --warn-bg: #fef9c3;
+      --warn-tx: #854d0e;
+      --err-bg: #fee2e2;
+      --err-tx: #991b1b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      max-width: 820px;
+      margin: 20px auto;
+      padding: 0 14px 40px;
+      line-height: 1.45;
+    }
+    h1 { font-size: 1.35rem; margin-bottom: 4px; }
+    .subtitle { color: var(--muted); font-size: 0.92rem; margin-bottom: 16px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    label { font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+    input[type="text"], input[type="number"] {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+    }
+    button {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    button:hover { background: #f1f5f9; }
+    button.active { background: #0f172a; color: #fff; border-color: #0f172a; }
+    button.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    button.primary:hover { background: #1e40af; }
+    .pill {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      background: #e2e8f0;
+    }
+    .badge { padding: 4px 12px; border-radius: 999px; font-size: 0.88rem; font-weight: 700; }
+    .ok { background: var(--ok-bg); color: var(--ok-tx); }
+    .warn { background: var(--warn-bg); color: var(--warn-tx); }
+    .err { background: var(--err-bg); color: var(--err-tx); }
+    .seq-box {
+      min-height: 58px;
+      padding: 10px;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      background: #f8fafc;
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .token {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #eff6ff;
+      border: 1px solid #93c5fd;
+      border-radius: 8px;
+      padding: 5px 8px;
+      font-size: 0.88rem;
+    }
+    .token button {
+      padding: 2px 6px;
+      font-size: 0.78rem;
+      border-radius: 5px;
+    }
+    .fig-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+      gap: 8px;
+    }
+    .fig-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 8px 10px;
+      text-align: left;
+    }
+    .fig-btn small { color: var(--muted); font-weight: 500; }
+    textarea {
+      width: 100%;
+      min-height: 165px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.82rem;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #f8fafc;
+    }
+  </style>
+</head>
+<body>
+  <h1>Laboratorio Matematica &amp; Musica</h1>
+  <div class="subtitle">
+    Convenzione attiva: <strong>Tempo target T = 4/4</strong> &bull;
+    <strong>Unità u = 1/4</strong> (semiminima) &bull;
+    Operatore punto: <strong>v(x&#775;) = (3/2)&middot;v(x)</strong>
+  </div>
+
+  <!-- Parametri sessione -->
+  <div class="card">
+    <div class="row" style="justify-content: space-between;">
+      <div class="row">
+        <label>Gruppo:
+          <input id="gruppo" type="text" value="Gruppo 1" oninput="aggiornaJSON()" />
+        </label>
+        <label>Max battute (n):
+          <input id="maxBattute" type="number" min="1" max="16" value="4" style="width: 68px;" onchange="aggiornaNumeroBattute()" />
+        </label>
+      </div>
+      <div class="row">
+        <span class="pill">T = 4/4 (= 4u)</span>
+        <span class="pill">v(u) = 1/4</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Selezione battuta e stato T-coerenza -->
+  <div class="card">
+    <div class="row" id="tabsBattute"></div>
+    <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 12px 0;" />
+
+    <div class="row" style="justify-content: space-between;">
+      <div>
+        <strong>Battuta b<sub><span id="idxBattutaLabel">1</span></sub></strong> —
+        Somma valori: <strong id="sommaFrazione">0/4</strong>
+        (<span id="sommaUnita">0u</span> / 4u) &bull;
+        Lunghezza stringa: <strong id="lunghezzaStringa">0</strong>
+      </div>
+      <span id="statoCoerenza" class="badge warn">Non T-coerente</span>
+    </div>
+
+    <div class="seq-box" id="sequenzaBattuta"></div>
+
+    <div class="row" style="margin-top: 10px;">
+      <button onclick="rimuoviUltimo()">Annulla ultimo</button>
+      <button onclick="svuotaBattuta()">Svuota battuta</button>
+    </div>
+  </div>
+
+  <!-- Palette N U •(N) -->
+  <div class="card">
+    <div class="row" style="margin-bottom: 12px;">
+      <button id="btnR" class="active" onclick="setInsieme('R')">Nota (R)</button>
+      <button id="btnP" onclick="setInsieme('P')">Pausa (P)</button>
+      <button id="btnPunto" onclick="togglePunto()">Operatore punto &bull; (x 3/2)</button>
+    </div>
+    <div class="fig-grid" id="paletteFigure"></div>
+  </div>
+
+  <!-- Esportazione JSON per il Passo 2 -->
+  <div class="card">
+    <div class="row" style="justify-content: space-between; margin-bottom: 8px;">
+      <strong>Dati composizione (JSON per script Python)</strong>
+      <div class="row">
+        <button onclick="copiaJSON()">Copia JSON</button>
+        <button class="primary" onclick="scaricaJSON()">Scarica .json</button>
+      </div>
+    </div>
+    <textarea id="jsonOutput" readonly></textarea>
+  </div>
+
+  <script>
+    // Target T = 4/4 (= 1 intero = 4u con u = 1/4)
+    const TARGET_NUM = 1;
+    const TARGET_DEN = 1;
+    const UNIT_NUM = 1;
+    const UNIT_DEN = 4;
+
+    // Figure base con esponente n rispetto a u = 1/4: v(x) = 2^n * (1/4)
+    const FIGURE = [
+      { id: "semibreve",     nome: "Semibreve",     n:  2, num: 1, den: 1,  labelU: "4u" },
+      { id: "minima",        nome: "Minima",        n:  1, num: 1, den: 2,  labelU: "2u" },
+      { id: "semiminima",    nome: "Semiminima",    n:  0, num: 1, den: 4,  labelU: "u" },
+      { id: "croma",         nome: "Croma",         n: -1, num: 1, den: 8,  labelU: "u/2" },
+      { id: "semicroma",     nome: "Semicroma",     n: -2, num: 1, den: 16, labelU: "u/4" },
+      { id: "biscroma",      nome: "Biscroma",      n: -3, num: 1, den: 32, labelU: "u/8" },
+      { id: "semibiscroma",  nome: "Semibiscroma",  n: -4, num: 1, den: 64, labelU: "u/16" }
+    ];
+
+    let insiemeCorrente = "R"; // "R" = nota, "P" = pausa
+    let puntoAttivo = false;
+    let maxBattute = 4;
+    let battutaCorrentIdx = 0;
+    let battute = Array.from({ length: maxBattute }, () => []);
+
+    // Aritmetica esatta delle frazioni
+    function mcd(a, b) {
+      a = Math.abs(a); b = Math.abs(b);
+      while (b !== 0) { const t = b; b = a % b; a = t; }
+      return a || 1;
+    }
+    function riduci(num, den) {
+      if (num === 0) return { num: 0, den: 1 };
+      const g = mcd(num, den);
+      return { num: num / g, den: den / g };
+    }
+    function sommaFrazioni(lista) {
+      let num = 0, den = 1;
+      for (const f of lista) {
+        num = num * f.den + f.num * den;
+        den = den * f.den;
+        const r = riduci(num, den);
+        num = r.num; den = r.den;
+      }
+      return { num, den };
+    }
+    function formatInQuarti(f) {
+      // Se il denominatore divide 4, mostra anche in quarti (es. 4/4)
+      if (4 % f.den === 0) {
+        const k = 4 / f.den;
+        return `${f.num * k}/4`;
+      }
+      return `${f.num}/${f.den}`;
+    }
+    function formatInUnitaU(f) {
+      // Rapporto rispetto a u = 1/4 => (num/den) / (1/4) = (4*num)/den
+      const r = riduci(f.num * 4, f.den);
+      return r.den === 1 ? `${r.num}u` : `${r.num}/${r.den}u`;
+    }
+
+    function setInsieme(ins) {
+      insiemeCorrente = ins;
+      document.getElementById("btnR").classList.toggle("active", ins === "R");
+      document.getElementById("btnP").classList.toggle("active", ins === "P");
+      renderPalette();
+    }
+
+    function togglePunto() {
+      puntoAttivo = !puntoAttivo;
+      document.getElementById("btnPunto").classList.toggle("active", puntoAttivo);
+      renderPalette();
+    }
+
+    function calcolaValoreFigura(fig, puntata) {
+      if (!puntata) return { num: fig.num, den: fig.den };
+      return riduci(fig.num * 3, fig.den * 2);
+    }
+
+    function renderPalette() {
+      const grid = document.getElementById("paletteFigure");
+      grid.innerHTML = "";
+      const tipoLabel = insiemeCorrente === "R" ? "Nota" : "Pausa";
+
+      FIGURE.forEach(fig => {
+        const val = calcolaValoreFigura(fig, puntoAttivo);
+        const btn = document.createElement("button");
+        btn.className = "fig-btn";
+        const dotStr = puntoAttivo ? " •" : "";
+        btn.innerHTML = `
+          <span>${tipoLabel} ${fig.nome}${dotStr}</span>
+          <small>v = ${formatInQuarti(val)} (${formatInUnitaU(val)})</small>
+        `;
+        btn.onclick = () => aggiungiElemento(fig, puntoAttivo, val);
+        grid.appendChild(btn);
+      });
+    }
+
+    function aggiungiElemento(fig, puntata, val) {
+      battute[battutaCorrentIdx].push({
+        insieme: insiemeCorrente,          // "R" o "P"
+        tipo: insiemeCorrente === "R" ? "nota" : "pausa",
+        figura: fig.id,
+        nome: fig.nome,
+        esponente_u: fig.n,
+        puntata: puntata,
+        valore_num: val.num,
+        valore_den: val.den,
+        valore_str: `${val.num}/${val.den}`
+      });
+      renderTabs();
+      renderBattuta();
+      aggiornaJSON();
+    }
+
+    function spostaElemento(idx, delta) {
+      const arr = battute[battutaCorrentIdx];
+      const nuovoIdx = idx + delta;
+      if (nuovoIdx < 0 || nuovoIdx >= arr.length) return;
+      [arr[idx], arr[nuovoIdx]] = [arr[nuovoIdx], arr[idx]];
+      renderBattuta();
+      aggiornaJSON();
+    }
+
+    function rimuoviElemento(idx) {
+      battute[battutaCorrentIdx].splice(idx, 1);
+      renderTabs();
+      renderBattuta();
+      aggiornaJSON();
+    }
+
+    function rimuoviUltimo() {
+      battute[battutaCorrentIdx].pop();
+      renderTabs();
+      renderBattuta();
+      aggiornaJSON();
+    }
+
+    function svuotaBattuta() {
+      battute[battutaCorrentIdx] = [];
+      renderTabs();
+      renderBattuta();
+      aggiornaJSON();
+    }
+
+    function aggiornaNumeroBattute() {
+      maxBattute = Math.max(1, Math.min(16, Number(document.getElementById("maxBattute").value) || 1));
+      while (battute.length < maxBattute) battute.push([]);
+      if (battute.length > maxBattute) battute = battute.slice(0, maxBattute);
+      if (battutaCorrentIdx >= maxBattute) battutaCorrentIdx = maxBattute - 1;
+      renderTabs();
+      renderBattuta();
+      aggiornaJSON();
+    }
+
+    function isBattutaCoerente(arr) {
+      if (arr.length === 0) return false;
+      const s = sommaFrazioni(arr.map(x => ({ num: x.valore_num, den: x.valore_den })));
+      return s.num === TARGET_NUM && s.den === TARGET_DEN;
+    }
+
+    function renderTabs() {
+      const tabs = document.getElementById("tabsBattute");
+      tabs.innerHTML = "";
+      for (let i = 0; i < maxBattute; i++) {
+        const b = document.createElement("button");
+        const ok = isBattutaCoerente(battute[i]);
+        b.textContent = `b${i + 1}${ok ? " ✓" : ""}`;
+        b.classList.toggle("active", i === battutaCorrentIdx);
+        b.onclick = () => {
+          battutaCorrentIdx = i;
+          renderTabs();
+          renderBattuta();
+        };
+        tabs.appendChild(b);
+      }
+    }
+
+    function renderBattuta() {
+      const arr = battute[battutaCorrentIdx];
+      document.getElementById("idxBattutaLabel").textContent = String(battutaCorrentIdx + 1);
+      document.getElementById("lunghezzaStringa").textContent = String(arr.length);
+
+      const s = sommaFrazioni(arr.map(x => ({ num: x.valore_num, den: x.valore_den })));
+      document.getElementById("sommaFrazione").textContent = formatInQuarti(s);
+      document.getElementById("sommaUnita").textContent = formatInUnitaU(s);
+
+      const badge = document.getElementById("statoCoerenza");
+      badge.className = "badge";
+      if (s.num === TARGET_NUM && s.den === TARGET_DEN) {
+        badge.textContent = "T-coerente (somma = 4/4)";
+        badge.classList.add("ok");
+      } else if (s.num * TARGET_DEN < TARGET_NUM * s.den) {
+        const diff = riduci(TARGET_NUM * s.den - s.num * TARGET_DEN, TARGET_DEN * s.den);
+        badge.textContent = `Incompleta (manca ${formatInQuarti(diff)})`;
+        badge.classList.add("warn");
+      } else {
+        const diff = riduci(s.num * TARGET_DEN - TARGET_NUM * s.den, TARGET_DEN * s.den);
+        badge.textContent = `Eccedente (+${formatInQuarti(diff)})`;
+        badge.classList.add("err");
+      }
+
+      const box = document.getElementById("sequenzaBattuta");
+      box.innerHTML = "";
+      if (arr.length === 0) {
+        box.innerHTML = `<span style="color:#64748b;font-size:0.9rem;">Stringa vuota: seleziona elementi da N &cup; &bull;(N) qui sotto.</span>`;
+        return;
+      }
+
+      arr.forEach((el, idx) => {
+        const tok = document.createElement("div");
+        tok.className = "token";
+        const simbolo = el.insieme === "R" ? "♪" : "𝄽";
+        const punt = el.puntata ? "•" : "";
+        tok.innerHTML = `
+          <span><strong>${simbolo} ${el.nome}${punt}</strong> (${formatInQuarti( {num: el.valore_num, den: el.valore_den} )})</span>
+          <button title="Sposta a sinistra" onclick="spostaElemento(${idx}, -1)">&larr;</button>
+          <button title="Sposta a destra" onclick="spostaElemento(${idx}, 1)">&rarr;</button>
+          <button title="Rimuovi" onclick="rimuoviElemento(${idx})">&times;</button>
+        `;
+        box.appendChild(tok);
+      });
+    }
+
+    function aggiornaJSON() {
+      const payload = {
+        gruppo: document.getElementById("gruppo").value.trim() || "Gruppo",
+        convenzione: {
+          tempo_target: "4/4",
+          target_num: TARGET_NUM,
+          target_den: TARGET_DEN,
+          unita_u: "1/4",
+          unit_num: UNIT_NUM,
+          unit_den: UNIT_DEN
+        },
+        max_battute: maxBattute,
+        battute: battute.map((b, i) => ({
+          indice: i + 1,
+          lunghezza: b.length,
+          t_coerente: isBattutaCoerente(b),
+          elementi: b
+        }))
+      };
+      document.getElementById("jsonOutput").value = JSON.stringify(payload, null, 2);
+    }
+
+    function copiaJSON() {
+      const area = document.getElementById("jsonOutput");
+      area.select();
+      navigator.clipboard?.writeText(area.value);
+    }
+
+    function scaricaJSON() {
+      const gruppo = (document.getElementById("gruppo").value.trim() || "gruppo")
+        .toLowerCase().replace(/[^a-z0-9_-]+/g, "_");
+      const blob = new Blob([document.getElementById("jsonOutput").value], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${gruppo}_4_4.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    renderTabs();
+    renderPalette();
+    renderBattuta();
+    aggiornaJSON();
+  </script>
+</body>
+</html>
